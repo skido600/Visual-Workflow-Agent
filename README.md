@@ -1,4 +1,4 @@
-# Full-Stack Authentication Monorepo
+# Visual Workflow Agent my meta hackathon
 
 A production-ready authentication starter for teams building modern web apps. It handles email sign-up, verification, password recovery, and Google OAuth so developers can spend less time on auth plumbing and more time on product features.
 
