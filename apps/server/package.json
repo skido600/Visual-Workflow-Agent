@@ -2,7 +2,8 @@
   "name": "server",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "build": "nitro build"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
@@ -19,6 +20,7 @@
     "@types/bun": "^1.4.4",
     "@types/node": "^26.6.6",
     "drizzle-kit": "1.0.0-rc.4",
+    "rolldown": "^1.2.16",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }
