@@ -5,7 +5,7 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "skipLibCheck": true,
-    "types": ["bun", "node"],
+    "types": [""],
     "jsxImportSource": "hono/jsx"
   }
 }
