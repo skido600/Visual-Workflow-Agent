@@ -4,3 +4,7 @@ packages:
 allowBuilds:
   argon2: false
   esbuild: false
+minimumReleaseAgeExclude:
+  - framer-motion@14.9.1
+  - motion-dom@14.9.1
+  - motion@14.9.1

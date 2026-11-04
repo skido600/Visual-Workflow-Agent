@@ -1,10 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
 
-export default function ErrorPage() {
+function ErrorPageContent() {
   const searchParams = useSearchParams();
 
   const message =
@@ -38,5 +39,18 @@ export default function ErrorPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function ErrorPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-black text-white">
+          <Loader2 className="animate-spin" size={24} />
+        </main>
+      }>
+      <ErrorPageContent />
+    </Suspense>
   );
 }

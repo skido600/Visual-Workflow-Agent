@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Monitor, ShieldCheck, Loader2, CheckCircle2 } from "lucide-react";
 
-export default function ConnectAgentPage() {
+function ConnectAgentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const userCode = searchParams.get("code");
@@ -40,7 +40,6 @@ export default function ConnectAgentPage() {
 
       setSuccess(true);
 
-      // Show success message before returning to dashboard.
       setTimeout(() => {
         router.replace("/dashboard");
       }, 1500);
@@ -113,5 +112,18 @@ export default function ConnectAgentPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function ConnectAgentPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-black text-white">
+          <Loader2 size={24} className="animate-spin" />
+        </main>
+      }>
+      <ConnectAgentContent />
+    </Suspense>
   );
 }

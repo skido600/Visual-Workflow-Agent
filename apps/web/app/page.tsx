@@ -94,17 +94,6 @@ export default function HomePage() {
             </span>
           </Link>
 
-          <div className="hidden items-center gap-8 md:flex">
-            {links.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-sm text-neutral-400 transition hover:text-white">
-                {link.label}
-              </a>
-            ))}
-          </div>
-
           <div className="flex items-center gap-3">
             <Link
               href="/login"
@@ -124,49 +113,7 @@ export default function HomePage() {
 
       {/* Hero */}
       <section className="relative px-5 pb-24 pt-24 sm:px-6 md:pb-32 md:pt-32">
-        {/* <div className="pointer-events-none absolute left-1/2 top-0 h-[450px] w-[700px] -translate-x-1/2 rounded-full bg-blue-600/10 blur-[130px]" /> */}
         <GridBackgroundDemo />
-        {/* <div className="relative mx-auto max-w-5xl text-center">
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-neutral-900/80 px-4 py-2 text-xs text-neutral-300">
-            <Sparkles size={14} className="text-blue-400" />
-            Powered by Muse AI
-            <span className="text-neutral-600">·</span>
-            <span className="text-neutral-400">muse-wonder-1.0</span>
-          </div>
-
-          <h1 className="mx-auto max-w-4xl text-4xl font-semibold leading-[1.12] tracking-tight sm:text-6xl md:text-7xl">
-            Your desktop.
-            <span className="block bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
-              Powered by AI.
-            </span>
-          </h1>
-
-          <p className="mx-auto mt-7 max-w-2xl text-base leading-8 text-neutral-400 md:text-lg">
-            Turn everyday instructions into desktop workflows. Let AI plan your
-            tasks, review every action, and approve your local agent to execute
-            them.
-          </p>
-
-          <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link
-              href="/register"
-              className="flex items-center justify-center gap-2 rounded-xl bg-white px-7 py-3.5 text-sm font-semibold text-black transition hover:bg-neutral-200">
-              Get started
-              <ArrowRight size={17} />
-            </Link>
-
-            <a
-              href="#demo"
-              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-neutral-900 px-7 py-3.5 text-sm font-medium text-white transition hover:bg-neutral-800">
-              <Play size={16} />
-              Watch demo
-            </a>
-          </div>
-
-          <p className="mt-5 text-xs text-neutral-600">
-            AI planning. Human approval. Local execution.
-          </p>
-        </div> */}
 
         {/* Dashboard Preview */}
         <div className="relative mx-auto mt-20 max-w-5xl">
