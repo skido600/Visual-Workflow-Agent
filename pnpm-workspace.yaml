@@ -2,7 +2,9 @@ packages:
   - "apps/*"
   - "packages/*"
 allowBuilds:
+  '@swc/core': false
   argon2: false
+  cbor-extract: false
   esbuild: false
 minimumReleaseAgeExclude:
   - framer-motion@14.9.1

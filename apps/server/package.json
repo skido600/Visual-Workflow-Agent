@@ -1,15 +1,18 @@
 {
   "name": "server",
   "scripts": {
-    "dev": "bun run --hot src/index.ts"
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
+    "@workflow/nitro": "^5.0.7",
     "argon2": "^0.45.1",
     "dotenv": "^18.0.8",
     "drizzle-orm": "1.0.0-rc.4",
     "googleapis": "^187.0.0",
     "hono": "^4.13.13",
+    "nitro": "3.0.261103-rc",
     "zod": "^4.6.7"
   },
   "devDependencies": {
