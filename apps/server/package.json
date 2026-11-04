@@ -9,15 +9,17 @@
     "@workflow/nitro": "^5.0.7",
     "argon2": "^0.45.1",
     "dotenv": "^18.0.8",
-    "drizzle-orm": "1.0.0-rc.4",
+    "drizzle-orm": "^0.45.4",
     "googleapis": "^187.0.0",
-    "hono": "^4.13.13",
+    "hono": "^4.13.16",
     "nitro": "3.0.261103-rc",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/bun": "^1.4.4",
+    "@types/node": "^26.6.6",
     "drizzle-kit": "1.0.0-rc.4",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
   }
 }
