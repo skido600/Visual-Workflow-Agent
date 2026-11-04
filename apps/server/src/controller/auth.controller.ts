@@ -3,8 +3,8 @@ import type { Context } from "hono";
 import { randomInt } from "node:crypto";
 import {
   emailVerificationTokens,
-  passwordCredentials,
   passwordResetTokens,
+  sessions,
   users,
 } from "../db/schema";
 import { db } from "../db/index";
@@ -15,18 +15,16 @@ import {
   verifyOtpSchema,
 } from "../lib/validator";
 import { hashPassword, verifyPassword } from "../lib/haspassword";
+
 import {
   sendPasswordResetEmail,
   sendVerificationEmail,
 } from "../lib/auth-email";
-import {
-  createToken,
-  hashToken,
-  FIFTEEN_MINUTES,
-  ONE_HOUR,
-} from "../lib/uth-tokens";
+import { createToken, hashToken, FIFTEEN_MINUTES } from "../lib/uth-tokens";
 import { generateTokens } from "../utils/jwt";
-import { setAuthCookies } from "../utils/cookies";
+import { clearAuthCookies, setAuthCookies } from "../utils/cookies";
+import { getSignedCookie } from "hono/cookie";
+import { env } from "../env";
 
 const errorResponse = (c: Context, message: string) =>
   c.json(
@@ -97,7 +95,7 @@ export const Register = async (c: Context) => {
     }
 
     const [existingEmail] = await db
-      .select({ id: users.id })
+      .select({ id: users.id, passwordHash: users.passwordHash })
       .from(users)
       .where(eq(users.email, email))
       .limit(1);
@@ -108,8 +106,9 @@ export const Register = async (c: Context) => {
           success: false,
           error: {
             code: "EMAIL_ALREADY_EXISTS",
-            message:
-              "An account with this email already exists. Try logging in instead.",
+            message: existingEmail.passwordHash
+              ? "An account with this email already exists. Try logging in instead."
+              : "An account with this email already exists. Continue with Google, or use Forgot password to set a password.",
           },
         },
         409,
@@ -125,6 +124,7 @@ export const Register = async (c: Context) => {
       .values({
         username,
         email,
+        passwordHash,
         emailVerified: false,
         displayName: username,
       })
@@ -133,11 +133,6 @@ export const Register = async (c: Context) => {
     if (!user) {
       throw new Error("Failed to create user");
     }
-
-    await db.insert(passwordCredentials).values({
-      userId: user.id,
-      passwordHash,
-    });
 
     await db.insert(emailVerificationTokens).values({
       userId: user.id,
@@ -312,28 +307,10 @@ export const Login = async (c: Context) => {
       .where(eq(users.email, email))
       .limit(1);
 
-    if (!user) {
-      return c.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_CREDENTIALS",
-            message: "Invalid email or password",
-          },
-        },
-        401,
-      );
-    }
-
-    const [credentials] = await db
-      .select()
-      .from(passwordCredentials)
-      .where(eq(passwordCredentials.userId, user.id))
-      .limit(1);
-
     if (
-      !credentials ||
-      !(await verifyPassword(result.data.password, credentials.passwordHash))
+      !user ||
+      !user.passwordHash ||
+      !(await verifyPassword(result.data.password, user.passwordHash))
     ) {
       return c.json(
         {
@@ -360,10 +337,16 @@ export const Login = async (c: Context) => {
       );
     }
 
-    const { accessToken, refreshToken } = await generateTokens(
+    const { accessToken, refreshToken, refreshExpDate } = await generateTokens(
       user.id,
       user.email,
     );
+    // Store refresh token in database
+    await db.insert(sessions).values({
+      userId: user.id,
+      refreshToken,
+      expiresAt: refreshExpDate,
+    });
 
     await setAuthCookies(c, accessToken, refreshToken);
 
@@ -385,6 +368,7 @@ export const Login = async (c: Context) => {
     return errorResponse(c, "Unable to log in");
   }
 };
+
 export const ResendVerification = async (c: Context) => {
   try {
     const body = await c.req.json<{ email: string }>();
@@ -480,21 +464,12 @@ export const ForgotPassword = async (c: Context) => {
         email: users.email,
       })
       .from(users)
-      .innerJoin(passwordCredentials, eq(passwordCredentials.userId, users.id))
       .where(eq(users.email, email))
       .limit(1);
 
+    // Same response whether or not the account exists.
     if (!user) {
-      return c.json(
-        {
-          success: false,
-          error: {
-            code: "USER_NOT_FOUND",
-            message: "No account exists with this email address.",
-          },
-        },
-        404,
-      );
+      return c.json({ success: true, message }, 202);
     }
 
     const otp = randomInt(100000, 1000000).toString();
@@ -565,7 +540,6 @@ export const ResetPassword = async (c: Context) => {
     const [user] = await db
       .select({ id: users.id })
       .from(users)
-      .innerJoin(passwordCredentials, eq(passwordCredentials.userId, users.id))
       .where(eq(users.email, email))
       .limit(1);
 
@@ -640,10 +614,16 @@ export const ResetPassword = async (c: Context) => {
 
     const passwordHash = await hashPassword(newPassword);
 
+    // The code was delivered to their inbox, so the email is proven.
     await db
-      .update(passwordCredentials)
-      .set({ passwordHash })
-      .where(eq(passwordCredentials.userId, user.id));
+      .update(users)
+      .set({
+        passwordHash,
+        emailVerified: true,
+        emailVerifiedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(users.id, user.id));
 
     // Invalidate any other outstanding reset codes for this user.
     await db
@@ -655,6 +635,9 @@ export const ResetPassword = async (c: Context) => {
           isNull(passwordResetTokens.usedAt),
         ),
       );
+
+    // Log out all devices after a password change.
+    await db.delete(sessions).where(eq(sessions.userId, user.id));
 
     return c.json({
       success: true,
@@ -684,7 +667,9 @@ export const verifyOtp = async (c: Context) => {
       );
     }
 
-    const { email, otp } = result.data;
+    const { otp } = result.data;
+    const email = result.data.email.trim().toLowerCase();
+
     const [user] = await db
       .select({ id: users.id })
       .from(users)
@@ -735,40 +720,7 @@ export const verifyOtp = async (c: Context) => {
       message: "Reset code verified.",
     });
   } catch (error) {
-    console.error(error);
-
-    if (error instanceof Error && error.message === "INVALID_OTP") {
-      return c.json(
-        {
-          success: false,
-          message: "Invalid OTP",
-          error: "INVALID_OTP",
-        },
-        400,
-      );
-    }
-
-    if (error instanceof Error && error.message === "OTP_EXPIRED") {
-      return c.json(
-        {
-          success: false,
-          message: "OTP has expired",
-          error: "OTP_EXPIRED",
-        },
-        400,
-      );
-    }
-
-    if (error instanceof Error && error.message === "OTP_ATTEMPTS_EXCEEDED") {
-      return c.json(
-        {
-          success: false,
-          message: "Too many OTP attempts",
-          error: "OTP_ATTEMPTS_EXCEEDED",
-        },
-        429,
-      );
-    }
+    console.error("Verify OTP error:", error);
 
     return c.json(
       {
@@ -780,3 +732,36 @@ export const verifyOtp = async (c: Context) => {
     );
   }
 };
+
+export async function logoutController(c: Context) {
+  try {
+    const refreshToken = await getSignedCookie(
+      c,
+      env.COOKIE_SECRET,
+      "refreshToken",
+    );
+    if (refreshToken) {
+      await db.delete(sessions).where(eq(sessions.refreshToken, refreshToken));
+    }
+
+    // Clear authentication cookies
+    clearAuthCookies(c);
+    return c.json({
+      success: true,
+      message: "Logged out successfully",
+      data: null,
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+    clearAuthCookies(c);
+
+    return c.json(
+      {
+        success: false,
+        message: "Could not logout",
+        data: null,
+      },
+      500,
+    );
+  }
+}

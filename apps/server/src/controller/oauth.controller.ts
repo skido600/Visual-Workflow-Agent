@@ -7,12 +7,13 @@ import { db } from "../db";
 import { oauthIdentities, sessions, users } from "../db/schema";
 import { env } from "../env";
 import { getGoogleAuthUrl, hashOAuthValue } from "../lib/goggleservice";
-import { hashToken } from "../lib/uth-tokens";
+
 import { generateTokens } from "../utils/jwt";
 import { setAuthCookies } from "../utils/cookies";
+import { generateUsername } from "../utils/username";
 
 const STATE_COOKIE = "google_oauth_state";
-const REFRESH_TOKEN_SECONDS = 7 * 24 * 60 * 60;
+
 const clearStateCookie = (c: Context) =>
   deleteCookie(c, STATE_COOKIE, {
     path: "/",
@@ -182,13 +183,14 @@ export async function GoogleCallback(c: Context) {
       if (existingUser) {
         user = existingUser;
       } else {
+        const username = await generateUsername(email);
         const [createdUser] = await db
           .insert(users)
           .values({
             email,
             emailVerified: true,
             emailVerifiedAt: now,
-            displayName: profile.name ?? payload.name ?? null,
+            displayName: profile.name ?? payload.name ?? username,
             avatarUrl: profile.picture ?? payload.picture ?? null,
           })
           .returning();
@@ -216,35 +218,23 @@ export async function GoogleCallback(c: Context) {
       user.id,
       user.email,
     );
+    // Store refresh token in database
     await db.insert(sessions).values({
       userId: user.id,
-      tokenHash: hashToken(refreshToken),
-      expiresAt: new Date(Date.now() + REFRESH_TOKEN_SECONDS * 1000),
+      refreshToken,
+      expiresAt: refreshExpDate,
     });
+
     await setAuthCookies(c, accessToken, refreshToken);
 
-    return c.json({
-      success: true,
-      message: "Google authentication successful",
-      data: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        displayName: user.displayName,
-        avatarUrl: user.avatarUrl,
-        emailVerified: user.emailVerified,
-      },
-    });
+    return c.redirect(`${env.FRONTEND_URL}/dashboard`);
   } catch (error) {
     console.error("Google callback error:", error);
 
-    return c.json(
-      {
-        success: false,
-        message: "Google authentication failed",
-        data: null,
-      },
-      500,
+    return c.redirect(
+      `${env.FRONTEND_URL}/error?message=${encodeURIComponent(
+        "Google authentication failed. Please try again.",
+      )}`,
     );
   }
 }

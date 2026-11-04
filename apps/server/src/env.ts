@@ -15,6 +15,11 @@ export const envSchema = z.object({
   APP_URL: z.string(),
   FRONTEND_URL: z.string(),
   SESSION_SECRET: z.string(),
+  META_MODEL_NAME: z.string(),
+  META_MODEL_API_URL: z.string(),
+  META_MODEL_API_KEY: z.string(),
+  AGENT_TOKEN: z.string().min(1),
+  WEB_URL: z.string(),
 });
 
 export const env = envSchema.parse(process.env);

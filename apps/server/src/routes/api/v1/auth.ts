@@ -7,7 +7,9 @@ import {
   ForgotPassword,
   ResetPassword,
   verifyOtp,
+  logoutController,
 } from "../../../controller/auth.controller";
+import { requireAuth } from "../../../middleware/VerifyToken";
 
 const auth = new Hono();
 
@@ -18,4 +20,5 @@ auth.post("/forgot-password", ForgotPassword);
 auth.post("/reset-password", ResetPassword);
 auth.post("/login", Login);
 auth.post("/verify-otp", verifyOtp);
+auth.post("/logout", requireAuth, logoutController);
 export default auth;
