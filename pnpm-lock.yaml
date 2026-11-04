@@ -18,6 +18,12 @@ importers:
         specifier: ^3.7.0
         version: 3.7.0
     devDependencies:
+      '@types/bun':
+        specifier: ^1.4.4
+        version: 1.4.4
+      '@types/node':
+        specifier: 26.4.1
+        version: 26.4.1
       prettier:
         specifier: 3.9.6
         version: 3.9.6
