@@ -1,7 +1,7 @@
 import "dotenv/config";
 
 import { Hono } from "hono";
-import { cors } from "hono/cors";
+
 import { serve } from "@hono/node-server";
 
 import { startPairing } from "./connect.js";
@@ -15,16 +15,6 @@ const PORT = Number(process.env.PORT);
 
 let pairingInProgress = false;
 let executionInProgress = false;
-
-// CORS configuration
-app.use(
-  "*",
-  cors({
-    origin: WEB_URL,
-    allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["Content-Type", "X-Agent-Request"],
-  }),
-);
 
 // Basic browser-origin and custom-header validation
 function validateRequest(c: {

@@ -83,15 +83,6 @@ export default function Sidebar({ mobileOpen, collapsed, onClose }: Props) {
             href="/dashboard"
             onClick={onClose}
             className="flex items-center gap-3">
-            <Image
-              src="/V Monogram Workflow Loop (2).png"
-              alt="Visual Workflow"
-              width={40}
-              height={40}
-              priority
-              className="h-10 w-10 shrink-0 object-contain"
-            />
-
             <div className={collapsed ? "lg:hidden" : ""}>
               <p className="text-sm font-bold tracking-tight text-white">
                 Visual Workflow
