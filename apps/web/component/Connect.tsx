@@ -10,11 +10,11 @@ export default function Connect() {
   const [connecting, setConnecting] = useState(false);
   const [message, setMessage] = useState("");
 
-  // Check whether the local agent already has a saved token.
+  const EXECUTE_URL = process.env.NEXT_PUBLIC_EXECUTE_URL;
   useEffect(() => {
     async function checkConnection() {
       try {
-        const response = await fetch("http://127.0.0.1:4317/status", {
+        const response = await fetch(`${EXECUTE_URL}/status`, {
           headers: {
             "X-Agent-Request": "connect",
           },
@@ -41,7 +41,7 @@ export default function Connect() {
       setConnecting(true);
       setMessage("");
 
-      const response = await fetch("http://127.0.0.1:4317/connect", {
+      const response = await fetch(`${EXECUTE_URL}/connect`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
