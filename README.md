@@ -1,35 +1,115 @@
-# Full-Stack Authentication Monorepo
+# Visual Workflow Agent
 
-A production-ready authentication starter for teams building modern web apps. It handles email sign-up, verification, password recovery, and Google OAuth so developers can spend less time on auth plumbing and more time on product features.
+A local-first AI assistant that turns plain-language requests into safe, executable file-management workflows on your own computer.
 
 ## Overview
 
-This project gives development teams a complete user authentication system plus an AI-powered desktop file agent out of the box. It handles email and password accounts with verification and password reset flows, sign-in with Google, and secure cookie-based sessions. Signed-in users can describe file tasks in plain English, review the generated plan, and let a local desktop agent carry it out on their own computer.
+Visual Workflow Agent lets users describe file tasks in everyday language, review a step-by-step plan created by an AI, and approve it before anything touches their local files. Once approved, a lightweight desktop agent carries out the actions directly on the user's machine, so sensitive files never need to leave their computer.
 
-The repository is structured as a monorepo, with the backend fully implemented in `apps/server` and room for a frontend client and shared packages under `apps/*`.
+The system bridges a cloud AI planning service with a secure local executor. Users get the convenience of natural language automation without giving up control or privacy over their personal files.
 
-## System Design
-
-The system separates the web client, API, database, external AI service, and a local desktop agent. The API owns user accounts, sessions, AI plans, and agent pairing. The desktop agent runs on the user's machine, claims approved plans, and executes file actions locally.
+## System Architecture
 
 ```mermaid
 flowchart LR
-    WebClient["Web Client"]
+    User["User / Browser"]
+    WebApp["Web Application"]
     API["API Server"]
+    DB[("PostgreSQL")]
+    AI["AI Model API"]
     Agent["Desktop Agent"]
-    Postgres[("PostgreSQL")]
-    MetaAI["Meta AI"]
+    Files[("Local Files")]
 
-    WebClient --> API
-    Agent --> API
-    API --> Postgres
-    API --> MetaAI
+    User --> WebApp
+    WebApp --> API
+    API --> DB
+    API --> AI
+    API --> Agent
+    Agent --> Files
 
-    style WebClient fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff
+    style WebApp fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff
     style API fill:#2e1065,stroke:#8b5cf6,stroke-width:2px,color:#fff
-    style Agent fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#fff
-    style Postgres fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#fff
-    style MetaAI fill:#1e3a8a,stroke:#38bdf8,stroke-width:2px,color:#fff
+    style DB fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#fff
+    style Agent fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff
+    style Files fill:#022c22,stroke:#10b981,stroke-width:2px,color:#fff
+    style AI fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#fff
+```
+
+## Features
+
+- **Natural language file planning**: Describe what you want, such as "move all images from Downloads to a new folder on my desktop," and the system builds a structured plan.
+- **Human-in-the-loop approval**: Every plan stays in a pending state until the user reviews and approves it. Nothing runs without explicit consent.
+- **Secure local execution**: A desktop agent runs on the user's own machine and only operates inside the user's home directory.
+- **JWT-based authentication**: Cookie-backed sessions with access tokens and refresh tokens, plus Google OAuth support.
+- **Plan history and results**: Completed, rejected, and failed plans are stored for later review.
+
+### AI Plan Generation and Approval
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant WebApp as Web App
+    participant API as API Server
+    participant AI as AI Model API
+    participant DB as Database
+
+    User->>WebApp: "Organize my downloads"
+    WebApp->>API: POST /v1/ai/plan
+    API->>AI: Generate step-by-step plan
+    AI->>API: Return plan actions
+    API->>DB: Save pending plan
+    API->>WebApp: Plan for review
+    User->>WebApp: Approve plan
+    WebApp->>API: POST /v1/ai/plans/:id/approve
+    API->>DB: Update status to approved
+    API->>WebApp: Ready for execution
+```
+
+### Desktop Agent Pairing and Execution
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Agent as Desktop Agent
+    participant API as API Server
+    participant DB as Database
+    participant Files as Local Files
+
+    User->>Agent: Request connect
+    Agent->>API: POST /v1/agent/start
+    API->>Agent: Device code + user code
+    Agent->>User: Show pairing code
+    User->>API: POST /v1/agent/approve
+    API->>DB: Link agent to user
+    Agent->>API: Poll /v1/agent/poll
+    API->>Agent: Return agent token
+    Agent->>API: POST /v1/agent/claim
+    API->>DB: Fetch approved plan
+    API->>Agent: Return plan actions
+    Agent->>Files: Execute file operations
+    Agent->>API: POST plan result
+    API->>DB: Save execution result
+```
+
+### Authentication and Session Refresh
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Client as Web Client
+    participant API as API Server
+    participant DB as Database
+
+    User->>Client: Login
+    Client->>API: POST /v1/auth/login
+    API->>DB: Validate credentials
+    API->>API: Generate access + refresh tokens
+    API->>Client: Set HttpOnly cookies
+    Client->>API: Request protected resource
+    API->>API: Access token expired
+    API->>DB: Verify refresh session
+    API->>API: Issue new access token
+    API->>Client: Continue request
 ```
 
 ## Installation
@@ -37,8 +117,8 @@ flowchart LR
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
-cd meta_ai
+git clone https://github.com/skido600/Visual-Workflow-Agent.git
+cd Visual-Workflow-Agent
 ```
 
 2. Install dependencies with pnpm:
@@ -47,199 +127,59 @@ cd meta_ai
 pnpm install
 ```
 
-3. Create a backend environment file at `apps/server/.env` and fill in the values listed in the [Environment Variables](#environment-variables) section.
+3. Set up the server environment. Create `apps/server/.env` with the variables listed in the [Environment Variables](#environment-variables) section.
 
-4. Push the database schema:
+4. Run database migrations:
 
 ```bash
-pnpm --filter server drizzle-kit push
+cd apps/server
+pnpm drizzle-kit migrate
 ```
 
-5. If you are using the desktop agent, create `apps/agent/.env`:
+5. Start the development servers:
 
 ```bash
-API_URL="http://localhost:3000"
-WEB_URL="http://localhost:3001"
-```
-
-6. Start the development server:
-
-```bash
+# From the repository root
 pnpm dev
 ```
 
-To run only the backend:
+## Usage
+
+After starting the project, the web frontend can ask the backend to generate a plan.
+
+Example: creating a folder and moving a file.
 
 ```bash
-pnpm dev --filter server
+curl -X POST http://localhost:3000/v1/ai/plan \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Create a folder called Work on my desktop and move the report PDF into it"}'
+```
+
+The server returns a pending plan that the user reviews in the frontend. Once approved, the paired desktop agent picks up the plan, executes each file action, and reports the result back to the server.
+
+To run only the server:
+
+```bash
+cd apps/server
+pnpm dev
 ```
 
 To run only the desktop agent:
 
 ```bash
-pnpm dev --filter agent
+cd apps/agent
+pnpm dev
 ```
-
-## Usage
-
-Once the server is running, it is available at `http://localhost:3000` by default.
-
-Create an account:
-
-```bash
-curl -X POST http://localhost:3000/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"jane_doe","email":"jane@example.com","password":"securePassword123"}'
-```
-
-Log in:
-
-```bash
-curl -X POST http://localhost:3000/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"jane@example.com","password":"securePassword123"}'
-```
-
-For Google sign-in, call `GET /v1/oauth/google` to receive the Google authorization URL, redirect the user to that URL, and let Google redirect back to `/v1/oauth/google/callback`.
-
-### AI Plans
-
-Describe a file task and store it as a plan:
-
-```bash
-curl -X POST http://localhost:3000/v1/ai/plan \
-  -H "Content-Type: application/json" \
-  -H "Cookie: accessToken=..." \
-  -d '{"prompt":"Find image.png and move it to a folder named Archive on the desktop"}'
-```
-
-Approve the plan so the desktop agent can claim it:
-
-```bash
-curl -X POST http://localhost:3000/v1/ai/plans/<planId>/approve \
-  -H "Cookie: accessToken=..."
-```
-
-### Desktop Agent
-
-The agent runs locally at `http://127.0.0.1:4317`. It only accepts requests from the configured `WEB_URL` and requires the custom header `X-Agent-Request: connect`.
-
-Pair the agent with your account:
-
-```bash
-curl -X POST http://127.0.0.1:4317/connect \
-  -H "Content-Type: application/json" \
-  -H "X-Agent-Request: connect"
-```
-
-After pairing, the agent polls the server for approved plans and executes them. You can also trigger execution manually:
-
-```bash
-curl -X POST http://127.0.0.1:4317/execute \
-  -H "Content-Type: application/json" \
-  -H "X-Agent-Request: connect"
-```
-
-## Features
-
-- Email and password registration with username availability suggestions
-- Time-limited email verification tokens
-- Resend verification email endpoint
-- Login with signed, httpOnly JWT access and refresh cookies
-- Logout that clears cookies and invalidates the server session
-- Forgot password flow using a six-digit OTP
-- OTP verification before password reset
-- Secure password reset with token invalidation
-- Google OAuth sign-in and automatic account linking
-- AI-generated file management plans from plain English prompts
-- Review, approve, or reject AI plans before execution
-- Desktop agent that claims approved plans and runs file actions locally
-- File actions: list, find, create folders, and move files within the user's home directory
-- Agent pairing flow with a user code and verification URL
-- Plan result reporting and history
-- Structured error responses and input validation
-- Monorepo workspace ready for a Next.js client and shared packages
-
-### AI Plan Execution Flow
-
-When a user asks for a file task, the backend asks the configured AI model for a structured plan, saves it, and waits for approval. The desktop agent then claims the approved plan, runs the actions locally, and reports the results.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant Web as Web Client
-    participant API as API Server
-    participant Meta as Meta AI
-    participant DB as Database
-    participant Agent as Desktop Agent
-
-    User->>Web: Describe file task
-    Web->>API: Create plan
-    API->>Meta: Generate file actions
-    Meta->>API: Return plan
-    API->>DB: Save pending plan
-    API->>Web: Show plan for review
-    User->>Web: Approve plan
-    Web->>API: Approve plan
-    API->>DB: Mark plan approved
-    Agent->>API: Claim approved plan
-    API->>DB: Update plan to executing
-    API->>Agent: Return plan
-    Agent->>Agent: Run file actions locally
-    Agent->>API: Report results
-    API->>DB: Save execution result
-```
-
-### Agent Pairing Flow
-
-Pairing links a local desktop agent to a signed-in user through a short user code. The agent polls the server until the user approves the pairing, then it receives a token it can use on future requests.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant Agent as Desktop Agent
-    participant API as API Server
-    participant DB as Database
-
-    User->>Agent: Start pairing
-    Agent->>API: Start device pairing
-    API->>DB: Create pairing record
-    API->>Agent: Return device code and user code
-    Agent->>User: Show verification URL and code
-    User->>API: Approve pairing with user code
-    API->>DB: Link agent to user
-    Agent->>API: Poll for approval
-    API->>Agent: Issue agent token
-```
-
-## Technologies Used
-
-| Technology | Purpose |
-|---|---|
-| [TypeScript](https://www.typescriptlang.org/) | Type-safe code across the stack |
-| [Next.js](https://nextjs.org/) | React framework for the frontend |
-| [React](https://react.dev/) | UI library |
-| [Hono](https://hono.dev/) | Lightweight backend web framework |
-| [Node.js](https://nodejs.org/) | JavaScript runtime |
-| [Drizzle ORM](https://orm.drizzle.team/) | Type-safe database access |
-| [PostgreSQL](https://www.postgresql.org/) | Relational database, accessed via Neon serverless driver |
-| [Argon2](https://github.com/P-H-C/phc-winner-argon2) | Secure password hashing |
-| [Zod](https://zod.dev/) | Runtime schema validation |
-| [Google APIs](https://github.com/googleapis/google-api-nodejs-client) | Google OAuth integration |
-| [Meta AI](https://ai.meta.com/) | External AI model used to generate file plans |
-| [pnpm](https://pnpm.io/) | Fast package manager and workspace tool |
-| [Turborepo](https://turbo.build/) | Monorepo task runner |
-| [Bun](https://bun.sh/) | Fast dev runtime for the server |
 
 ## API Documentation
 
-All routes are mounted under `/v1`.
+All routes are prefixed with `/v1`. Authentication is handled via signed, HttpOnly cookies. Agent routes use a separate `Authorization: Bearer <agent-token>` header.
 
-### Authentication Endpoints
+### Authentication
 
 #### POST /v1/auth/register
 
-**Description**: Creates a new user account, stores a hashed password, and sends a verification email.
+Create a new account and send a verification email.
 
 **Request**:
 
@@ -263,18 +203,13 @@ All routes are mounted under `/v1`.
 **Errors**:
 
 - 400: Validation error
-- 409: Username already taken or email already exists
-- 500: Unable to create account
+- 409: Username or email already exists
 
 #### GET /v1/auth/verify-email
 
-**Description**: Verifies a user's email address using the token from the verification link.
+Verify an email address using the token sent by email.
 
-**Request**: Query parameter `token`
-
-```txt
-GET /v1/auth/verify-email?token=abc123
-```
+**Query**: `?token=<verification_token>`
 
 **Response**:
 
@@ -288,11 +223,10 @@ GET /v1/auth/verify-email?token=abc123
 **Errors**:
 
 - 400: Invalid or expired token
-- 500: Unable to verify email
 
 #### POST /v1/auth/resend-verification
 
-**Description**: Resends the email verification link for an unverified account.
+Resend the verification email.
 
 **Request**:
 
@@ -311,13 +245,9 @@ GET /v1/auth/verify-email?token=abc123
 }
 ```
 
-**Errors**:
-
-- 500: Unable to resend verification email
-
 #### POST /v1/auth/login
 
-**Description**: Authenticates a user and sets signed `accessToken` and `refreshToken` cookies.
+Log in with email and password.
 
 **Request**:
 
@@ -336,7 +266,7 @@ GET /v1/auth/verify-email?token=abc123
   "message": "Login successful",
   "data": {
     "user": {
-      "id": "...",
+      "id": "uuid",
       "username": "jane_doe",
       "email": "jane@example.com",
       "displayName": "jane_doe",
@@ -349,32 +279,12 @@ GET /v1/auth/verify-email?token=abc123
 **Errors**:
 
 - 400: Validation error
-- 401: Invalid email or password
+- 401: Invalid credentials
 - 403: Email not verified
-- 500: Unable to log in
-
-#### POST /v1/auth/logout
-
-**Description**: Ends the current session, removes the server refresh token, and clears auth cookies. Requires authentication.
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "message": "Logged out successfully",
-  "data": null
-}
-```
-
-**Errors**:
-
-- 401: Not authenticated
-- 500: Could not logout
 
 #### POST /v1/auth/forgot-password
 
-**Description**: Sends a six-digit OTP to the user's email for password reset.
+Request a password reset OTP.
 
 **Request**:
 
@@ -393,43 +303,9 @@ GET /v1/auth/verify-email?token=abc123
 }
 ```
 
-**Errors**:
-
-- 400: Validation error
-- 404: No account exists with this email address
-- 500: Unable to process password reset request
-
-#### POST /v1/auth/verify-otp
-
-**Description**: Validates the six-digit password reset OTP.
-
-**Request**:
-
-```json
-{
-  "email": "jane@example.com",
-  "otp": "123456"
-}
-```
-
-**Response**:
-
-```json
-{
-  "success": true,
-  "message": "Reset code verified."
-}
-```
-
-**Errors**:
-
-- 400: Invalid or expired reset code
-- 422: Validation failed
-- 500: Unable to verify OTP
-
 #### POST /v1/auth/reset-password
 
-**Description**: Resets the user's password after the OTP has been verified.
+Reset a password using the OTP sent by email.
 
 **Request**:
 
@@ -452,14 +328,51 @@ GET /v1/auth/verify-email?token=abc123
 
 **Errors**:
 
-- 400: Invalid reset request or invalid reset code
-- 500: Unable to reset password
+- 400: Invalid reset request
 
-### OAuth Endpoints
+#### POST /v1/auth/verify-otp
+
+Verify a password reset OTP without resetting the password yet.
+
+**Request**:
+
+```json
+{
+  "email": "jane@example.com",
+  "otp": "123456"
+}
+```
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "message": "Reset code verified."
+}
+```
+
+#### POST /v1/auth/logout
+
+Invalidate the current session and clear authentication cookies.
+
+**Auth required**: Yes
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "message": "Logged out successfully",
+  "data": null
+}
+```
+
+### OAuth
 
 #### GET /v1/oauth/google
 
-**Description**: Returns the Google OAuth URL that the client should redirect the user to.
+Get the Google OAuth URL.
 
 **Response**:
 
@@ -470,42 +383,25 @@ GET /v1/auth/verify-email?token=abc123
 }
 ```
 
-**Errors**:
-
-- 500: Unable to start Google authentication
-
 #### GET /v1/oauth/google/callback
 
-**Description**: Handles the Google OAuth callback, creates or links the user account, sets auth cookies, and redirects the browser.
+Google OAuth callback. Sets authentication cookies and redirects to the frontend dashboard.
 
-**Request**: Query parameters `code` and `state`.
+**Response**: 302 redirect to `/dashboard` or to `/error?message=...`
 
-```txt
-GET /v1/oauth/google/callback?code=abc&state=xyz
-```
-
-**Response**: HTTP redirect to `${FRONTEND_URL}/dashboard` on success, or to `${FRONTEND_URL}/error?message=...` on failure.
-
-**Errors**:
-
-- 400: Missing authorization code or state
-- 401: Google identity verification failed
-- 404: The account associated with Google was not found
-- 500: Google authentication failed
-
-### AI Endpoints
-
-All AI routes require a valid session cookie.
+### AI Plans
 
 #### POST /v1/ai/plan
 
-**Description**: Sends a natural-language file task to the configured AI model and stores the generated plan for review.
+Generate a new file-management plan from a natural language prompt.
+
+**Auth required**: Yes
 
 **Request**:
 
 ```json
 {
-  "prompt": "Find image.png and move it to a folder named Archive on the desktop"
+  "prompt": "Create a folder called Work on my desktop and move the report PDF into it"
 }
 ```
 
@@ -516,12 +412,12 @@ All AI routes require a valid session cookie.
   "success": true,
   "message": "Plan generated. Review it before approving.",
   "data": {
-    "id": "...",
-    "userId": "...",
-    "goal": "Find image.png and move it to Archive on the desktop",
+    "id": "uuid",
+    "userId": "uuid",
+    "goal": "Create a folder called Work on the desktop and move the report PDF into it",
     "plan": {
-      "goal": "Find image.png and move it to Archive on the desktop",
-      "explanation": "Locate image.png, create Archive on the desktop, and move the file into it.",
+      "goal": "...",
+      "explanation": "...",
       "actions": [...]
     },
     "status": "pending_approval",
@@ -533,13 +429,15 @@ All AI routes require a valid session cookie.
 
 **Errors**:
 
-- 400: Validation error or invalid JSON
+- 400: Invalid request body
 - 401: Authentication required
-- 502: AI returned an invalid plan or the plan structure failed validation
+- 502: AI service error
 
 #### POST /v1/ai/plans/:planId/approve
 
-**Description**: Approves a pending plan so the desktop agent can claim and execute it.
+Approve a pending plan so the desktop agent can execute it.
+
+**Auth required**: Yes
 
 **Response**:
 
@@ -548,8 +446,8 @@ All AI routes require a valid session cookie.
   "success": true,
   "message": "Plan approved. Ready for execution.",
   "data": {
-    "id": "...",
-    "goal": "Find image.png and move it to Archive on the desktop",
+    "id": "uuid",
+    "goal": "...",
     "status": "approved"
   }
 }
@@ -560,11 +458,12 @@ All AI routes require a valid session cookie.
 - 400: Invalid plan ID
 - 401: Authentication required
 - 409: Plan not found or already reviewed
-- 500: Could not approve the plan
 
 #### POST /v1/ai/plans/:planId/reject
 
-**Description**: Rejects a pending plan so it will not be executed.
+Reject a pending plan.
+
+**Auth required**: Yes
 
 **Response**:
 
@@ -573,27 +472,18 @@ All AI routes require a valid session cookie.
   "success": true,
   "message": "Plan rejected. No actions will be executed.",
   "data": {
-    "id": "...",
-    "goal": "Find image.png and move it to Archive on the desktop",
+    "id": "uuid",
+    "goal": "...",
     "status": "rejected"
   }
 }
 ```
 
-**Errors**:
-
-- 400: Invalid plan ID
-- 401: Authentication required
-- 409: Plan not found or already reviewed
-- 500: Could not reject the plan
-
-### Agent Endpoints
-
-Agent endpoints use `Authorization: Bearer <agent-token>`, where the token is returned by the pairing flow. The result and history endpoints require a normal session cookie instead.
+### Agent Pairing and Execution
 
 #### POST /v1/agent/start
 
-**Description**: Starts the device pairing flow. Returns a device code and a short user code.
+Start the device pairing flow for a desktop agent.
 
 **Response**:
 
@@ -603,19 +493,17 @@ Agent endpoints use `Authorization: Bearer <agent-token>`, where the token is re
   "data": {
     "deviceCode": "...",
     "userCode": "ABCD-1234",
-    "verificationUrl": "http://localhost:3001/connect-agent?code=ABCD-1234",
+    "verificationUrl": "https://.../connect-agent?code=ABCD-1234",
     "expiresIn": 600
   }
 }
 ```
 
-**Errors**:
-
-- 500: Could not start pairing
-
 #### POST /v1/agent/approve
 
-**Description**: Links a pairing code to the signed-in user. Requires authentication.
+Approve a pairing code from an authenticated user account.
+
+**Auth required**: Yes
 
 **Request**:
 
@@ -636,12 +524,10 @@ Agent endpoints use `Authorization: Bearer <agent-token>`, where the token is re
 **Errors**:
 
 - 400: Invalid or expired code
-- 401: Authentication required
-- 500: Could not approve pairing
 
 #### POST /v1/agent/poll
 
-**Description**: Polls for the pairing status. Returns 202 while pending, or the agent token once approved.
+Poll for the pairing status using the device code.
 
 **Request**:
 
@@ -657,24 +543,29 @@ Agent endpoints use `Authorization: Bearer <agent-token>`, where the token is re
 {
   "success": true,
   "data": {
-    "token": "..."
+    "token": "agent-token"
   }
 }
 ```
 
 **Response when pending**:
 
-```txt
-HTTP 202 Accepted
+```json
+{
+  "success": true,
+  "status": "pending"
+}
 ```
 
 **Errors**:
 
-- 400: Pairing expired or invalid device code
+- 400: Pairing expired or already used
 
 #### POST /v1/agent/claim
 
-**Description**: Claims the next approved plan for the authenticated agent's user.
+Claim the next approved plan for execution.
+
+**Auth required**: Agent token
 
 **Response**:
 
@@ -682,8 +573,8 @@ HTTP 202 Accepted
 {
   "success": true,
   "data": {
-    "id": "...",
-    "goal": "Find image.png and move it to Archive on the desktop",
+    "id": "uuid",
+    "goal": "...",
     "plan": {
       "goal": "...",
       "explanation": "...",
@@ -694,15 +585,13 @@ HTTP 202 Accepted
 }
 ```
 
-**Errors**:
-
-- 204: No approved plan available
-- 401: Agent authentication required
-- 500: Could not claim a plan
+**Response when no plan available**: 204 No Content
 
 #### POST /v1/agent/plans/:planId/result
 
-**Description**: Reports the outcome of executing a claimed plan.
+Report the result of an executed plan.
+
+**Auth required**: Agent token
 
 **Request**:
 
@@ -720,7 +609,7 @@ HTTP 202 Accepted
   "success": true,
   "message": "Execution result saved successfully.",
   "data": {
-    "id": "...",
+    "id": "uuid",
     "goal": "...",
     "status": "completed",
     "executionResult": [...]
@@ -728,16 +617,11 @@ HTTP 202 Accepted
 }
 ```
 
-**Errors**:
-
-- 400: Invalid plan ID, invalid JSON, or invalid result body
-- 401: Agent authentication required
-- 409: Plan not found or is not being executed
-- 500: Could not save execution result
-
 #### GET /v1/agent/result/:planId
 
-**Description**: Retrieves the execution result of a specific plan for the signed-in user.
+Get the execution result of a specific plan.
+
+**Auth required**: Yes
 
 **Response**:
 
@@ -746,24 +630,20 @@ HTTP 202 Accepted
   "success": true,
   "message": "Execution result retrieved successfully.",
   "data": {
-    "id": "...",
+    "id": "uuid",
     "goal": "...",
     "status": "completed",
-    "executionResult": [...]
+    "executionResult": [...],
+    "updatedAt": "..."
   }
 }
 ```
 
-**Errors**:
-
-- 400: Invalid plan ID
-- 401: Authentication required
-- 404: Plan not found
-- 500: Could not retrieve execution result
-
 #### GET /v1/agent/history
 
-**Description**: Lists completed, failed, or rejected plans for the signed-in user.
+List completed, rejected, and failed plans for the authenticated user.
+
+**Auth required**: Yes
 
 **Response**:
 
@@ -772,7 +652,7 @@ HTTP 202 Accepted
   "success": true,
   "data": [
     {
-      "id": "...",
+      "id": "uuid",
       "goal": "...",
       "status": "completed",
       "executionResult": [...],
@@ -783,63 +663,125 @@ HTTP 202 Accepted
 }
 ```
 
-**Errors**:
+### Local Desktop Agent Endpoints
 
-- 401: Authentication required
-- 500: Could not retrieve plan history
+The desktop agent exposes a small local Hono server for the web frontend to trigger pairing and execution.
 
-### Authentication Notes
+#### GET /health
 
-- After login or Google callback, the server sets two signed, httpOnly cookies: `accessToken` (15 minutes) and `refreshToken` (7 days).
-- Most auth endpoints are public. Cookie-protected routes can read the `accessToken` cookie on subsequent requests.
-- The desktop agent uses a separate bearer token obtained from the pairing flow. This token is saved to `~/.meta-agent/config.json` on the user's machine.
-- The Google callback URL is `${FRONTEND_URL}/api/v1/oauth/google/callback`.
+Check whether the agent is running.
 
-### Environment Variables
+**Response**:
 
-Create `apps/server/.env` with the following values:
-
-```bash
-DATABASE_URL="postgresql://user:password@host/db"
-COOKIE_SECRET="a-long-random-string"
-NODE_ENV="development"
-JWT_ACCESS_SECRET="another-long-random-string"
-JWT_REFRESH_SECRET="yet-another-long-random-string"
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-APP_URL="http://localhost:3000"
-FRONTEND_URL="http://localhost:3001"
-WEB_URL="http://localhost:3001"
-SESSION_SECRET="a-session-secret"
-AGENT_TOKEN="a-secret-used-to-sign-agent-tokens"
-META_MODEL_NAME="model-name"
-META_MODEL_API_URL="https://api.meta.ai/v1/responses"
-META_MODEL_API_KEY="your-meta-api-key"
+```json
+{
+  "success": true,
+  "message": "Desktop agent is running"
+}
 ```
 
-For the desktop agent, create `apps/agent/.env`:
+#### GET /status
+
+Check whether the agent is connected and whether it is currently executing a plan.
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "connected": true,
+  "running": false
+}
+```
+
+#### POST /connect
+
+Start the pairing flow with the backend.
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "alreadyConnected": false
+}
+```
+
+#### POST /execute
+
+Trigger execution of the next approved plan.
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "status": "completed",
+  "results": [...]
+}
+```
+
+## Environment Variables
+
+### Server (`apps/server/.env`)
+
+```bash
+DATABASE_URL="postgresql://..."
+COOKIE_SECRET="..."
+JWT_ACCESS_SECRET="..."
+JWT_REFRESH_SECRET="..."
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+APP_URL="http://localhost:3000"
+FRONTEND_URL="http://localhost:5173"
+SESSION_SECRET="..."
+META_MODEL_NAME="..."
+META_MODEL_API_URL="..."
+META_MODEL_API_KEY="..."
+AGENT_TOKEN="..."
+WEB_URL="..."
+NODE_ENV="development"
+```
+
+### Desktop Agent (`apps/agent/.env`)
 
 ```bash
 API_URL="http://localhost:3000"
-WEB_URL="http://localhost:3001"
+PORT=3001
+WEB_URL="https://..."
 ```
+
+## Technologies Used
+
+| Technology | Description |
+|------------|-------------|
+| [TypeScript](https://www.typescriptlang.org/) | Typed JavaScript for both server and agent |
+| [Hono](https://hono.dev/) | Fast, lightweight web framework for the API and local agent |
+| [Drizzle ORM](https://orm.drizzle.team/) | Type-safe SQL-like ORM for database operations |
+| [PostgreSQL](https://www.postgresql.org/) | Relational database for users, sessions, plans, and agent pairings |
+| [Zod](https://zod.dev/) | Runtime schema validation for requests and environment variables |
+| [Google APIs](https://github.com/googleapis/google-api-nodejs-client) | Google OAuth integration |
+| [Meta AI API](https://ai.meta.com/) | Model used to generate file-management plans |
+| [Bun](https://bun.sh/) | Runtime and package manager for the server app |
+| [pnpm](https://pnpm.io/) | Monorepo package manager |
+| [Turborepo](https://turbo.build/) | Build system and task orchestration |
+
+## Contributing
+
+Contributions are welcome. If you would like to improve the project, please open an issue or pull request on GitHub. When making changes, keep the existing code style and make sure the TypeScript type checker passes.
 
 ## Author
 
-Built and maintained by the project author.
-
-- Questions or feedback? Open an issue in this repository.
+Built by [skido600](https://github.com/skido600)
 
 ## Badges
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
-[![Hono](https://img.shields.io/badge/Hono-E36002?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev/)
-[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Hono](https://img.shields.io/badge/Hono-E7A014?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Drizzle](https://img.shields.io/badge/Drizzle%20ORM-C5F74F?style=for-the-badge&logo=drizzle&logoColor=black)](https://orm.drizzle.team/)
 [![pnpm](https://img.shields.io/badge/pnpm-F69220?style=for-the-badge&logo=pnpm&logoColor=white)](https://pnpm.io/)
-[![Turborepo](https://img.shields.io/badge/Turborepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white)](https://turbo.build/)
 [![Bun](https://img.shields.io/badge/Bun-000000?style=for-the-badge&logo=bun&logoColor=white)](https://bun.sh/)
+[![Turborepo](https://img.shields.io/badge/Turborepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white)](https://turbo.build/)
 
 [![Readme was generated by Dokugen](https://img.shields.io/badge/Readme%20was%20generated%20by-Dokugen-brightgreen)](https://dokugen.samueltuoyo.com)
