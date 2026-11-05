@@ -7,12 +7,21 @@ import { serve } from "@hono/node-server";
 import { startPairing } from "./connect.js";
 import { getSavedAgentToken } from "./connect.js";
 import { executeApprovedPlan } from "./index.js";
-
+import { cors } from "hono/cors";
 const app = new Hono();
 
-const WEB_URL = process.env.WEB_URL;
 const PORT = Number(process.env.PORT);
-
+const WEB_URL =
+  process.env.WEB_URL ?? "https://visual-workflow-agent1.vercel.app";
+app.use(
+  "*",
+  cors({
+    origin: WEB_URL,
+    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowHeaders: ["Content-Type", "X-Agent-Request"],
+    maxAge: 86400,
+  }),
+);
 let pairingInProgress = false;
 let executionInProgress = false;
 
