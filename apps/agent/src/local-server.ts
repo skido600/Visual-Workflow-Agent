@@ -10,7 +10,7 @@ import { executeApprovedPlan } from "./index.js";
 
 const app = new Hono();
 
-const WEB_URL = process.env.WEB_URL ?? "http://localhost:3001";
+const WEB_URL = process.env.WEB_URL;
 const PORT = 4317;
 
 let pairingInProgress = false;
@@ -138,7 +138,6 @@ app.post("/execute", async (c) => {
 serve({
   fetch: app.fetch,
   port: PORT,
-  hostname: "127.0.0.1",
 });
 
 console.log(`Desktop agent listening on http://127.0.0.1:${PORT}`);
