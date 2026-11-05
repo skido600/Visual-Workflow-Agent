@@ -11,7 +11,7 @@ import { executeApprovedPlan } from "./index.js";
 const app = new Hono();
 
 const WEB_URL = process.env.WEB_URL;
-const PORT = 4317;
+const PORT = Number(process.env.PORT);
 
 let pairingInProgress = false;
 let executionInProgress = false;

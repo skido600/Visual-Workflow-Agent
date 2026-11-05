@@ -81,14 +81,6 @@ export default function HomePage() {
       <header className="sticky top-0 z-50 border-b border-white/10 bg-black/85 backdrop-blur-xl">
         <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/V Monogram Workflow Loop (2).png"
-              alt="Visual Workflow"
-              width={40}
-              height={40}
-              priority
-              className="h-9 w-9 object-contain"
-            />
             <span className="text-sm font-bold tracking-tight">
               Visual Workflow
             </span>
