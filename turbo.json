@@ -4,23 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "env": [
-        "DATABASE_URL",
-        "COOKIE_SECRET",
-        "NODE_ENV",
-        "JWT_ACCESS_SECRET",
-        "JWT_REFRESH_SECRET",
-        "GOOGLE_CLIENT_ID",
-        "GOOGLE_CLIENT_SECRET",
-        "APP_URL",
-        "FRONTEND_URL",
-        "SESSION_SECRET",
-        "META_MODEL_NAME",
-        "META_MODEL_API_URL",
-        "META_MODEL_API_KEY",
-        "AGENT_TOKEN",
-        "WEB_URL"
-      ],
+
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
     },

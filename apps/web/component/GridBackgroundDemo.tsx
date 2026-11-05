@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 export function GridBackgroundDemo() {
   return (
-    <div className="relative flex h-[50rem] w-full items-center justify-center bg-white dark:bg-black">
+    <div className="relative flex h-200 w-full items-center justify-center bg-white dark:bg-black">
       <div
         className={cn(
           "absolute inset-0",
