@@ -85,7 +85,7 @@ export default function Connect() {
     return (
       <div className="inline-flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/10 px-4 py-2 text-sm font-medium text-green-500">
         <CheckCircle2 size={16} />
-        Device connected
+        Local Device connected
       </div>
     );
   }
