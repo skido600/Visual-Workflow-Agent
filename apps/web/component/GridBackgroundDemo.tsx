@@ -52,7 +52,7 @@ export function GridBackgroundDemo() {
 
           <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
-              href="/register"
+              href="/signup"
               className="flex items-center justify-center gap-2 rounded-xl bg-white px-7 py-3.5 text-sm font-semibold text-black transition hover:bg-neutral-200">
               Get started
               <ArrowRight size={17} />
