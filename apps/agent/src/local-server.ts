@@ -1,62 +1,65 @@
 import "dotenv/config";
 
 import { Hono } from "hono";
-
 import { serve } from "@hono/node-server";
-
-import { startPairing } from "./connect.js";
-import { getSavedAgentToken } from "./connect.js";
-import { executeApprovedPlan } from "./index.js";
 import { cors } from "hono/cors";
+
+import { startPairing, getSavedAgentToken } from "./connect.js";
+import { executeApprovedPlan } from "./index.js";
+
 const app = new Hono();
 
-const PORT = Number(process.env.PORT);
+// 1. Default port so it never becomes NaN
+const PORT = Number(process.env.PORT ?? 4545);
+
 const WEB_URL =
   process.env.WEB_URL ?? "https://visual-workflow-agent1.vercel.app";
+
+// 2. Allow both your deployed site and local dev
+const ALLOWED_ORIGINS = [WEB_URL, "http://localhost:3000"];
+
+// 3. Chrome Private Network Access header (must come BEFORE cors)
+app.use("*", async (c, next) => {
+  if (c.req.method === "OPTIONS") {
+    c.header("Access-Control-Allow-Private-Network", "true");
+  }
+  await next();
+});
+
 app.use(
   "*",
   cors({
-    origin: WEB_URL,
+    origin: (origin) => (ALLOWED_ORIGINS.includes(origin) ? origin : null),
     allowMethods: ["GET", "POST", "OPTIONS"],
     allowHeaders: ["Content-Type", "X-Agent-Request"],
     maxAge: 86400,
   }),
 );
+
 let pairingInProgress = false;
 let executionInProgress = false;
 
-// Basic browser-origin and custom-header validation
 function validateRequest(c: {
-  req: {
-    header: (name: string) => string | undefined;
-  };
+  req: { header: (name: string) => string | undefined };
 }) {
-  if (c.req.header("Origin") !== WEB_URL) {
-    return false;
-  }
-
-  if (c.req.header("X-Agent-Request") !== "connect") {
-    return false;
-  }
-
+  const origin = c.req.header("Origin");
+  if (!origin || !ALLOWED_ORIGINS.includes(origin)) return false;
+  if (c.req.header("X-Agent-Request") !== "connect") return false;
   return true;
 }
 
-// Health check
-app.get("/health", (c) => {
-  return c.json({
-    success: true,
-    message: "Desktop agent is running",
-  });
-});
-app.get("/status", (c) => {
-  return c.json({
+app.get("/health", (c) =>
+  c.json({ success: true, message: "Desktop agent is running" }),
+);
+
+app.get("/status", (c) =>
+  c.json({
     success: true,
     connected: Boolean(getSavedAgentToken()),
     running: executionInProgress,
-  });
-});
-// Connect device
+  }),
+);
+
 app.post("/connect", async (c) => {
   if (!validateRequest(c)) {
     return c.json({ success: false, message: "Request not allowed" }, 403);
@@ -73,11 +76,9 @@ app.post("/connect", async (c) => {
 
   try {
     const result = await startPairing();
-
     return c.json(result);
   } catch (error) {
     console.error("Pairing error:", error);
-
     return c.json(
       {
         success: false,
@@ -91,7 +92,6 @@ app.post("/connect", async (c) => {
   }
 });
 
-// Execute approved plan
 app.post("/execute", async (c) => {
   console.log("Frontend requested agent execution.");
 
@@ -121,7 +121,6 @@ app.post("/execute", async (c) => {
     return c.json(result);
   } catch (error) {
     console.error("Execution error:", error);
-
     return c.json(
       {
         success: false,
@@ -134,9 +133,11 @@ app.post("/execute", async (c) => {
   }
 });
 
+// 4. Bind to localhost only, so nothing else on the network can reach it
 serve({
   fetch: app.fetch,
   port: PORT,
+  hostname: "127.0.0.1",
 });
 
 console.log(`Desktop agent listening on http://127.0.0.1:${PORT}`);
